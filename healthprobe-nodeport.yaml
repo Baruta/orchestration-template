@@ -1,0 +1,79 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: health-demo
+  labels:
+    name: health
+  annotations:
+    tenxcloud.com/schemaPortname: wordpress-1/HTTP
+spec:
+  ports:
+    - name: health-1
+      port: 8080
+#      targetPort: 8080
+      nodePort: 31888
+  selector:
+    name: health
+  type: NodePort
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: health-demo
+  labels:
+    name: health
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: health
+  template:
+    metadata:
+      labels:
+        name: health
+    spec:
+      containers:
+        - name: centos
+          image: 'index.tenxcloud.com/tenxcloud/centos:centos6'
+          ports:
+            - containerPort: 22
+              protocol: TCP
+          env:
+            - name: PATH
+              value: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+            - name: AUTHORIZED_KEYS
+              value: '**None**'
+          args:
+            - /run.sh
+          resources:
+            limits:
+              memory: 512Mi
+            requests:
+              memory: 512Mi
+        - name: health
+          image: '192.168.1.161/bmcc/healthcheck'
+#          ports:
+#            - containerPort: 8080
+#              protocol: TCP
+          env:
+            - name: PATH
+              value: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+            - name: GOPATH
+              value: /go
+          resources:
+            limits:
+              memory: 512Mi
+            requests:
+              memory: 512Mi
+          args:
+            - go
+            - run
+            - main.go
+          imagePullPolicy: Always
+          livenessProbe:
+            httpGet:
+              port: 8080
+              path: health
+            initialDelaySeconds: 10
+            timeoutSeconds: 2
+            periodSeconds: 5
